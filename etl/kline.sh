@@ -1,0 +1,1 @@
+python -m etl.run_etl --config etl/config.json --kline   

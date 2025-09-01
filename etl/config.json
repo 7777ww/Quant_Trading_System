@@ -1,0 +1,14 @@
+{
+    "etl": {
+      "exchange_id": "binance",
+      "timeframes": ["1h", "4h"],
+      "batch_limit": 500,
+      "since_iso": "2025-08-01T00:00:00Z",
+      "quote_filter": "USDT",
+      "only_symbols": ["BTC/USDT"]  
+    },
+    "logging": {
+      "level": "INFO"
+    }
+  }
+  

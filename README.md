@@ -22,6 +22,8 @@ quant-crypto/                       # 專案根目錄
 │       └─ scripts/
 │           ├─ __init__.py
 │           └─ import_parquet_to_pg.py
+│─ dal/
+│   └─ 
 │
 ├─ etl/
 │   ├─ Dockerfile
