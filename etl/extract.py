@@ -48,6 +48,42 @@ def fetch_ohlcv_incremental(
     return all_rows
 
 
+def fetch_ohlcv_range(
+    exchange_id: str,
+    symbol: str,
+    timeframe: str,
+    start_ms: int,
+    end_ms: int,
+    limit: int,
+) -> List[List[Optional[float]]]:
+    """
+    抓取 [start_ms, end_ms] 範圍內的 OHLCV。
+    ccxt 沒有 until 參數，所以用 since 游標前進，超過 end_ms 就截斷並停止。
+    """
+    exchange_class = getattr(ccxt, exchange_id)
+    ex = exchange_class({"enableRateLimit": True})
+
+    cursor = start_ms
+    all_rows: List[List[Optional[float]]] = []
+    while True:
+        batch = ex.fetch_ohlcv(symbol, timeframe=timeframe, since=cursor, limit=limit)
+        if not batch:
+            break
+
+        last_ts = batch[-1][0]
+        # 只保留 <= end_ms 的列
+        kept = [row for row in batch if row[0] <= end_ms]
+        all_rows.extend(kept)
+
+        # 若這批已經碰到 end_ms，或整批都被截斷了，就結束
+        if last_ts >= end_ms or len(kept) < len(batch):
+            break
+
+        cursor = last_ts + 1
+        time.sleep(ex.rateLimit / 1000.0)
+
+    return all_rows
+
 def iso_to_ms(iso_str: str) -> int:
     """
     將 ISO8601 轉毫秒 timestamp。

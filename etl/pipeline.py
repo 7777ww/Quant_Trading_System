@@ -1,5 +1,5 @@
-from __future__ import annotations
 
+from __future__ import annotations
 import logging
 
 import os
@@ -8,9 +8,14 @@ from typing import List, Type
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from .extract import list_usdt_spot_markets, fetch_ohlcv_incremental, iso_to_ms
+from .extract import (
+    list_usdt_spot_markets,
+    fetch_ohlcv_incremental, 
+    iso_to_ms, 
+    fetch_ohlcv_range
+)
 from .transform import to_symbol_rows, to_kline_rows
-from .load import upsert_symbols, upsert_klines, get_latest_ts
+from .load import upsert_symbols, upsert_klines, get_latest_ts, get_earliest_ts
 
 
 LOGGER = logging.getLogger(__name__)
@@ -65,26 +70,87 @@ def backfill_one(
     return upsert_klines(sess, kline_model, rows)
 
 
-# def sync_klines(sess: Session, symbol_model: Type, kline_model: Type) -> None:
-#     """
-#     對資料庫中所有 USDT 且 active 的 symbol，依據環境變數的 timeframes 做回補。
-#     """
-#     exchange_id = os.getenv("EXCHANGE_ID", "binance")
-#     timeframes = [x.strip() for x in os.getenv("TIMEFRAMES", "1h,1d").split(",") if x.strip()]
-#     batch_limit = int(os.getenv("BATCH_LIMIT", "1000"))
-#     since_iso = os.getenv("SINCE_ISO", "2021-01-01T00:00:00Z")
 
-#     symbols = (
-#         sess.execute(
-#             select(symbol_model.symbol).where(
-#                 symbol_model.exchange == exchange_id,
-#                 symbol_model.quote == "USDT",
-#                 symbol_model.active.is_(True),
-#             )
-#         )
-#         .scalars()          # ← 取得純字串，不是 Row
-#         .all()
-#     )
+
+def backfill_left(
+    sess: Session,
+    kline_model: Type,
+    exchange_id: str,
+    symbol: str,
+    timeframe: str,
+    since_iso: str,
+    batch_limit: int,
+) -> int:
+    """
+    若 DB 最早一筆 ts > since_iso，代表左側有缺口，先把 [since_iso, earliest-1] 補齊。
+    回傳寫入筆數。
+    """
+    earliest = get_earliest_ts(sess, kline_model, exchange_id, symbol, timeframe)
+    if earliest is None:
+        # DB 完全沒有資料，交給之後的「右側增量」一次吃掉（會從 since_iso 開始）
+        return 0
+
+    start_ms = iso_to_ms(since_iso)
+    end_ms = int(earliest.timestamp() * 1000) - 1
+    if start_ms > end_ms:
+        return 0  # 沒有左側缺口
+
+    raw = fetch_ohlcv_range(exchange_id, symbol, timeframe, start_ms, end_ms, batch_limit)
+    rows = to_kline_rows(raw, exchange_id, symbol, timeframe)
+    written = upsert_klines(sess, kline_model, rows)
+    LOGGER.info("left-backfill | %s %s | written=%d | range=[%s, %s]",
+                symbol, timeframe, written, start_ms, end_ms)
+    return written
+
+
+def backfill_forward(
+    sess: Session,
+    kline_model: Type,
+    exchange_id: str,
+    symbol: str,
+    timeframe: str,
+    since_iso: str,
+    batch_limit: int,
+) -> int:
+    """
+    原本的「往右補」：從 DB max(ts)+1 開始；若 DB 無資料，從 since_iso 開始。
+    """
+    latest = get_latest_ts(sess, kline_model, exchange_id, symbol, timeframe)
+    since_ms = iso_to_ms(since_iso) if latest is None else int(latest.timestamp() * 1000) + 1
+    raw = fetch_ohlcv_incremental(exchange_id, symbol, timeframe, since_ms, batch_limit)
+    rows = to_kline_rows(raw, exchange_id, symbol, timeframe)
+    written = upsert_klines(sess, kline_model, rows)
+    LOGGER.info("forward-backfill | %s %s | written=%d | since_ms=%s | latest_db=%s",
+                symbol, timeframe, written, since_ms, latest)
+    return written
+
+
+def sync_one_symbol_tf(
+    sess: Session,
+    kline_model: Type,
+    cfg: AppConfig,
+    symbol: str,
+    timeframe: str,
+) -> None:
+    # 先補左側缺口，再做右側增量
+    backfill_left(
+        sess=sess,
+        kline_model=kline_model,
+        exchange_id=cfg.etl.exchange_id,
+        symbol=symbol,
+        timeframe=timeframe,
+        since_iso=cfg.etl.since_iso,
+        batch_limit=cfg.etl.batch_limit,
+    )
+    backfill_forward(
+        sess=sess,
+        kline_model=kline_model,
+        exchange_id=cfg.etl.exchange_id,
+        symbol=symbol,
+        timeframe=timeframe,
+        since_iso=cfg.etl.since_iso,
+        batch_limit=cfg.etl.batch_limit,
+    )
 def sync_klines(
     sess: Session,
     symbol_model: Type,
@@ -108,29 +174,5 @@ def sync_klines(
     )
 
     for sym in symbols:
-        for tf in timeframes:
-            latest = get_latest_ts(sess, kline_model, exchange_id, sym, tf)
-            since_ms = (
-                iso_to_ms(since_iso)
-                if latest is None
-                else int(latest.timestamp() * 1000) + 1
-            )
-
-            raw = fetch_ohlcv_incremental(
-                exchange_id=exchange_id,
-                symbol=sym,
-                timeframe=tf,
-                since_ms=since_ms,
-                limit=batch_limit,
-            )
-            rows = to_kline_rows(raw, exchange_id, sym, tf)
-            written = upsert_klines(sess, kline_model, rows)
-
-            LOGGER.info(
-                "written=%-5d | %s %-6s | since_ms=%s | latest_db=%s",
-                written, sym, tf, since_ms, latest,
-            )
-
-    for sym in symbols:
-        for tf in timeframes:
-            backfill_one(sess, kline_model, exchange_id, sym, tf, since_iso, batch_limit)
+        for tf in cfg.etl.timeframes:
+            sync_one_symbol_tf(sess, kline_model, cfg, sym, tf)

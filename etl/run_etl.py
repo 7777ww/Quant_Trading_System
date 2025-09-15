@@ -15,6 +15,8 @@ from etl.config import load_config            # ← 新增：讀 JSON
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Crypto Kline ETL (DAL-injected)")

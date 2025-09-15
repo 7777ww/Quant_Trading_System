@@ -48,7 +48,7 @@ def build_sync_engine() -> "Engine":
             f"{db['host']}:{db['port']}/{db['database']}"
         )
 
-    return create_engine(db_url, echo=True, pool_pre_ping=True)
+    return create_engine(db_url, echo=False, pool_pre_ping=True)
 
 
 def build_async_engine() -> "AsyncEngine":
