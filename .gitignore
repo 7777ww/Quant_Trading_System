@@ -5,3 +5,5 @@ pgdata
 config
 dal/QuantAlembic
 __pycache__
+extensions.txt
+ccxt.ipynb

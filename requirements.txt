@@ -1,4 +1,10 @@
+fastapi == 0.111.0
+pydantic == 2.7.4
+uvicorn[standard] == 0.29.0
 alembic == 1.16.2
 SQLAlchemy  == 2.0.41
 psycopg2 == 2.9.10
 asyncpg == 0.30.0
+dotenv == 0.9.9
+pandas == 2.2.2
+requests == 2.32.3
