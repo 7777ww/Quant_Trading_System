@@ -9,6 +9,56 @@ A modular crypto quantitative trading platform that combines historical market i
 - **Research helpers** – `export_watchlist/` includes utilities for exporting candidate symbols; `backtest/` is the placeholder for forthcoming portfolio/backtest logic.
 - **Deployment target** – The architecture (see `architecture.md` / `systemDesign.png`) aims for an AWS EKS cluster with GitHub Actions + Argo CD, Timescale Cloud, and a React frontend on S3/CloudFront.
 
+## Architecture
+```mermaid
+flowchart LR
+    subgraph Cloud
+      PG[(TimescaleDB)]
+      subgraph EKS Cluster
+        ETL[ETL CronJob]
+        subgraph Backend Deployment
+          API[FastAPI Gateway]
+          StrategySvc[Strategy Management Module]
+          OrderSvc[Order Execution Module]
+          PositionSvc[Position Monitoring Module]
+        end
+        BacktestWorker[Backtest Worker\n(Celery/RQ)]
+        EventBus[(Redis/Message Queue)]
+        MON[kube-prometheus]
+      end
+      FE[React Front-end\n(S3 + CloudFront)]
+      Exchange[(Exchange / Broker API)]
+      CI[GitHub Actions]
+      CD[Argo CD]
+      ECR[Amazon ECR]
+    end
+
+    CI -- Push Image --> ECR
+    CI -- K8s Manifests PR --> CD
+    CD -- Sync --> EKS Cluster
+
+    FE -- REST/WebSocket --> API
+    API -- Strategy CRUD --> StrategySvc
+    API -- Reporting --> PositionSvc
+    API -- Queries --> PG
+
+    StrategySvc -- Config/Parameters --> PG
+    StrategySvc -- Launch Backtests --> BacktestWorker
+    BacktestWorker -- Simulation Results --> PG
+    StrategySvc -- Trade Signals --> EventBus
+
+    EventBus -- Orders/Fills --> OrderSvc
+    OrderSvc -- Submit Orders --> Exchange
+    Exchange -- Executions --> OrderSvc
+    OrderSvc -- Order/Fill Logs --> PG
+
+    EventBus -- Fills/Signals --> PositionSvc
+    PositionSvc -- Position Snapshots --> PG
+    PositionSvc -- Metrics/Alerts --> MON
+
+    ETL -- Market Data --> PG
+```
+
 ## Repository Layout
 ```
 Quant_Trading_System/
