@@ -22,11 +22,11 @@ flowchart LR
           OrderSvc[Order Execution Module]
           PositionSvc[Position Monitoring Module]
         end
-        BacktestWorker[Backtest Worker\n(Celery/RQ)]
+        BacktestWorker[Backtest Worker<br/>(Celery/RQ)]
         EventBus[(Redis/Message Queue)]
         MON[kube-prometheus]
       end
-      FE[React Front-end\n(S3 + CloudFront)]
+      FE[React Front-end<br/>(S3 + CloudFront)]
       Exchange[(Exchange / Broker API)]
       CI[GitHub Actions]
       CD[Argo CD]
