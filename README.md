@@ -12,51 +12,53 @@ A modular crypto quantitative trading platform that combines historical market i
 ## Architecture
 ```mermaid
 flowchart LR
-    subgraph Cloud
-      PG[(TimescaleDB)]
-      subgraph EKS Cluster
-        ETL[ETL CronJob]
-        subgraph Backend Deployment
-          API[FastAPI Gateway]
-          StrategySvc[Strategy Management Module]
-          OrderSvc[Order Execution Module]
-          PositionSvc[Position Monitoring Module]
-        end
-        BacktestWorker[Backtest Worker<br/>(Celery/RQ)]
-        EventBus[(Redis/Message Queue)]
-        MON[kube-prometheus]
+  subgraph "Cloud"
+    PG[(TimescaleDB)]
+    subgraph "EKS Cluster"
+      ETL[ETL CronJob]
+      subgraph "Backend Deployment"
+        API[FastAPI Gateway]
+        StrategySvc[Strategy Management Module]
+        OrderSvc[Order Execution Module]
+        PositionSvc[Position Monitoring Module]
       end
-      FE[React Front-end<br/>(S3 + CloudFront)]
-      Exchange[(Exchange / Broker API)]
-      CI[GitHub Actions]
-      CD[Argo CD]
-      ECR[Amazon ECR]
+      BacktestWorker[Backtest Worker<br/>(Celery/RQ)]
+      EventBus[(Redis / Message Queue)]
+      MON[kube-prometheus]
+      KubeAPI[K8s API Server]
     end
+    FE[React Front-end<br/>(S3 + CloudFront)]
+    Exchange[(Exchange / Broker API)]
+    CI[GitHub Actions]
+    CD[Argo CD]
+    ECR[Amazon ECR]
+  end
 
-    CI -- Push Image --> ECR
-    CI -- K8s Manifests PR --> CD
-    CD -- Sync --> EKS Cluster
+  CI --> |Push Image| ECR
+  CI --> |K8s Manifests PR| CD
+  CD --> |Sync| KubeAPI
 
-    FE -- REST/WebSocket --> API
-    API -- Strategy CRUD --> StrategySvc
-    API -- Reporting --> PositionSvc
-    API -- Queries --> PG
+  FE --> |REST / WebSocket| API
+  API --> |Strategy CRUD| StrategySvc
+  API --> |Reporting| PositionSvc
+  API --> |Queries| PG
 
-    StrategySvc -- Config/Parameters --> PG
-    StrategySvc -- Launch Backtests --> BacktestWorker
-    BacktestWorker -- Simulation Results --> PG
-    StrategySvc -- Trade Signals --> EventBus
+  StrategySvc --> |Config / Parameters| PG
+  StrategySvc --> |Launch Backtests| BacktestWorker
+  BacktestWorker --> |Simulation Results| PG
+  StrategySvc --> |Trade Signals| EventBus
 
-    EventBus -- Orders/Fills --> OrderSvc
-    OrderSvc -- Submit Orders --> Exchange
-    Exchange -- Executions --> OrderSvc
-    OrderSvc -- Order/Fill Logs --> PG
+  EventBus --> |Orders / Fills| OrderSvc
+  OrderSvc --> |Submit Orders| Exchange
+  Exchange --> |Executions| OrderSvc
+  OrderSvc --> |Order / Fill Logs| PG
 
-    EventBus -- Fills/Signals --> PositionSvc
-    PositionSvc -- Position Snapshots --> PG
-    PositionSvc -- Metrics/Alerts --> MON
+  EventBus --> |Fills / Signals| PositionSvc
+  PositionSvc --> |Position Snapshots| PG
+  PositionSvc --> |Metrics / Alerts| MON
 
-    ETL -- Market Data --> PG
+  ETL --> |Market Data| PG
+
 ```
 
 ## Repository Layout
