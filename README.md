@@ -27,7 +27,7 @@ flowchart LR
       MON[kube-prometheus]
       KubeAPI[K8s API Server]
     end
-    FE[React Front-end<br/>(S3 + CloudFront)]
+    FE["React Front-end<br/>(S3 + CloudFront)"]
     Exchange[(Exchange / Broker API)]
     CI[GitHub Actions]
     CD[Argo CD]
