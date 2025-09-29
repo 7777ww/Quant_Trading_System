@@ -22,7 +22,7 @@ flowchart LR
         OrderSvc[Order Execution Module]
         PositionSvc[Position Monitoring Module]
       end
-      BacktestWorker[Backtest Worker<br/>(Celery/RQ)]
+      BacktestWorker["Backtest Worker<br/>(Celery/RQ)"]
       EventBus[(Redis / Message Queue)]
       MON[kube-prometheus]
       KubeAPI[K8s API Server]
