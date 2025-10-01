@@ -18,16 +18,13 @@ Quant_Trading_System/
 ├─ dal/                  # Database access layer, Alembic migrations, ORM models
 ├─ etl/                  # ETL configuration, extract/transform/load pipeline
 ├─ export_watchlist/     # TradingView watchlist export helper
-├─ frontend/             # React UI source skeleton (build tooling pending)
-├─ storage/              # Local volumes (PostgreSQL data)
+├─ frontend/             # planning
 ├─ docker-compose.yml    # Local TimescaleDB/PostgreSQL + pgAdmin stack
-├─ architecture.md       # Mermaid system architecture diagram
-├─ systemDesign.png      # High-level architecture illustration
 └─ requirements.txt      # Python dependencies for API + ETL tooling
 ```
 
 ## Prerequisites
-- Python 3.11 (recommended) with `pip`
+- Python 3.9.7 (recommended) with `pip`
 - Docker & Docker Compose for local PostgreSQL/TimescaleDB
 - Node.js 18+ (planned; frontend scaffolding still WIP)
 - Optional research libraries: `ccxt`, `pandas`, `twstock`, `finlab`
