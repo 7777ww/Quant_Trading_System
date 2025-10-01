@@ -97,9 +97,6 @@ python -m etl.run_etl --config etl/config.json --klines
 - Harden cloud deployment (Helm/Argo manifests, Terraform/IaC, observability stack).
 - Add automated tests (unit + integration) and CI workflows.
 
-## Additional Resources
-- `architecture.md` – Clickable diagram with cloud components and CI/CD flow.
-- `systemDesign.png` – Static system overview image.
-- `ccxt.ipynb` – Notebook for exploratory exchange data checks.
+
 
 > **Security note:** Rotate or remove real secrets from `.env` and `config/` before publishing the repository. Use secret managers (AWS Secret Manager/Kubernetes secrets) in production environments.
