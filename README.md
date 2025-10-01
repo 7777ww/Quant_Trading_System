@@ -20,7 +20,7 @@ Quant_Trading_System/
 ├─ etl/                  # ETL configuration, extract/transform/load pipeline
 ├─ export_watchlist/     # TradingView watchlist export helper
 ├─ frontend/             # React UI source skeleton (build tooling pending)
-├─ storage/              # Local volumes (PostgreSQL data)
+├─ storage/              # Local volumes (PostggreSQL data)
 ├─ docker-compose.yml    # Local TimescaleDB/PostgreSQL + pgAdmin stack
 ├─ architecture.md       # Mermaid system architecture diagram
 ├─ systemDesign.png      # High-level architecture illustration

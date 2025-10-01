@@ -7,3 +7,4 @@ dal/QuantAlembic
 __pycache__
 extensions.txt
 ccxt.ipynb
+.DS_store
