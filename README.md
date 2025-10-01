@@ -1,13 +1,13 @@
 # Quant Trading System
 
-A modular crypto quantitative trading platform that combines historical market ingestion, research utilities, and API services. The project is designed to load OHLCV data into TimescaleDB/PostgreSQL, expose the data and analytics through a FastAPI backend, and ultimately power factor research, backtesting, and trading orchestration.
+A notebook-first crypto quant workflow that ingests market data, runs strategy research directly inside Jupyter notebooks, and wires validated signals into an automated trading module. The goal is to shorten the research-to-trade loop: load data, prototype factors, backtest in notebooks, then push live orders through the execution layer with minimal glue code.
 
 ## Overview
+- **Notebook research loop** – `notebooks/` hosts exploratory studies and backtests; strategies are iterated and validated here before moving to production.
 - **Data ingestion** – `etl/` pipelines pull spot market metadata and klines from exchanges (via `ccxt`) and upsert them into TimescaleDB with idempotent operations.
-- **Data access** – `backend/` FastAPI service provides health checks and price retrieval endpoints that return FinLab-style data frames for downstream research or UI consumption.
-- **Data layer** – `dal/` centralises SQLAlchemy engines, AsyncSession factories, Alembic migrations, and ORM models for symbols and klines.
-- **Research helpers** – `export_watchlist/` includes utilities for exporting candidate symbols; `backtest/` is the placeholder for forthcoming portfolio/backtest logic.
-- **Deployment target** – The architecture (see `architecture.md` / `systemDesign.png`) aims for an AWS EKS cluster with GitHub Actions + Argo CD, Timescale Cloud, and a React frontend on S3/CloudFront.
+- **Data access** – `backend/` FastAPI service provides notebook-friendly endpoints that return pandas DataFrames for rapid experimentation and live signal consumption.
+- **Trading module** – `backtest/` and forthcoming execution packages share abstractions so a vetted notebook strategy can be promoted to an automated trader with minimal refactoring.
+- **Infrastructure helpers** – `dal/` 和 `export_watchlist/` 維持資料存取與觀察名單流程的一致性，支援 notebook 研究與交易模組部署。
 
 
 ## Repository Layout

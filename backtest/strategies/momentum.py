@@ -11,6 +11,7 @@ from urllib.parse import urljoin
 import numpy as np
 import pandas as pd
 import requests
+from pandas.tseries.frequencies import to_offset
 from requests import HTTPError
 
 DEFAULT_API_BASE_URL = "http://localhost:8000"
@@ -22,7 +23,8 @@ class MomentumConfig:
     top_n: int = 5
     bottom_n: int = 0
     signal_delay: int = 1
-    rebalance_frequency: str = "D"
+    rebalance_frequency: str | None = "D"
+    rebalance_steps: int | None = None
     transaction_cost: float = 0.0
 
     def __post_init__(self) -> None:
@@ -34,6 +36,9 @@ class MomentumConfig:
             raise ValueError(msg)
         if self.signal_delay < 0:
             msg = "signal_delay 需為非負整數"
+            raise ValueError(msg)
+        if self.rebalance_steps is not None and self.rebalance_steps <= 0:
+            msg = "rebalance_steps 需為正整數"
             raise ValueError(msg)
 
 
@@ -125,10 +130,18 @@ class MomentumStrategy:
         self.config = config or MomentumConfig()
 
     @staticmethod
-    def _align_prices(prices: pd.DataFrame, frequency: str) -> pd.DataFrame:
-        if frequency.upper() == "D":
+    def _align_prices(prices: pd.DataFrame, frequency: str | None) -> pd.DataFrame:
+        if frequency is None:
+            return prices
+        try:
+            offset = to_offset(frequency)
+        except ValueError as exc:
+            msg = f"無法解析再平衡頻率: {frequency}"
+            raise ValueError(msg) from exc
+
+        if offset.n == 1 and offset.name.upper() == "D":
             return prices.asfreq("1D", method=None)
-        return prices
+        return prices.asfreq(offset)
 
     def compute_momentum(self, prices: pd.DataFrame) -> pd.DataFrame:
         aligned = self._align_prices(prices, self.config.rebalance_frequency)
@@ -158,6 +171,15 @@ class MomentumStrategy:
         if self.config.bottom_n:
             positions = positions.where(~short_mask, -1)
         positions = positions.where(momentum.notna(), 0)
+
+        if self.config.rebalance_steps:
+            step = self.config.rebalance_steps
+            indices = np.arange(len(positions.index))
+            rebalance_mask = (indices % step) == 0
+            rebalanced = positions.iloc[rebalance_mask]
+            positions = rebalanced.reindex(positions.index, method="ffill").fillna(0)
+            positions = positions.where(momentum.notna(), 0)
+
         return positions
 
     @staticmethod

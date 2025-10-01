@@ -14,7 +14,13 @@ from backtest import MomentumConfig, run_momentum_backtest
 
 
 def main() -> None:
-    config = MomentumConfig(lookback=60, top_n=3, bottom_n=0, signal_delay=1)
+    config = MomentumConfig(
+        lookback=60,
+        top_n=3,
+        bottom_n=0,
+        signal_delay=1,
+        transaction_cost=0.0000,
+        rebalance_frequency="D" )
 
     result = run_momentum_backtest(
         exchange="binance",
