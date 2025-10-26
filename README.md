@@ -24,27 +24,29 @@ Quant_Trading_System/
 ```
 
 ## Prerequisites
-- Python 3.9.7 (recommended) with `pip`
+- Python 3.9.7 (recommended)
+- [uv](https://docs.astral.sh/uv/) for managing virtualenvs + dependencies
 - Docker & Docker Compose for local PostgreSQL/TimescaleDB
 - Node.js 18+ (planned; frontend scaffolding still WIP)
 - Optional research libraries: `ccxt`, `pandas`, `twstock`, `finlab`
 
-## Setup
-1. **Clone & create virtual environment**
+## Setup (uv-managed)
+1. **Clone & install uv**
    ```bash
    git clone <repo-url>
    cd Quant_Trading_System
-   python -m venv .venv
-   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux; Windows: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
-2. **Install Python dependencies**
+   Skip if `uv` is already on your path. `uv` bundles `pip`, `virtualenv`, and dependency resolution in a single tool.
+2. **Create the environment + sync dependencies**
    ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
+   uv venv                            # creates .venv/ using python from PATH
+   source .venv/bin/activate          # Windows: .venv\Scripts\activate
+   uv pip sync requirements.txt       # or: uv pip install -r requirements.txt
    ```
-   Additional ETL/export helpers may need extras:
+   Extra ETL/export helpers can be added with:
    ```bash
-   pip install ccxt twstock finlab python-dotenv
+   uv pip install ccxt twstock finlab python-dotenv
    ```
 3. **Copy environment variables**
    - Use `.env` as the base for local runs. Keep API keys (e.g., `FINLAB_TOKEN`) out of version control for shared environments.
@@ -64,9 +66,10 @@ Quant_Trading_System/
    ```
 
 ## Running Services
+`uv run <command>` automatically executes inside `.venv`, so you can skip manual activation when starting services or scripts.
 ### Backend API
 ```bash
-uvicorn backend.app.app:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn backend.app.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 Key endpoints:
 - `GET /health/` – Service heartbeat
@@ -76,8 +79,8 @@ Key endpoints:
 ### ETL Pipeline
 Sync symbols and klines into the database:
 ```bash
-python -m etl.run_etl --config etl/config.json --symbols
-python -m etl.run_etl --config etl/config.json --klines
+uv run python -m etl.run_etl --config etl/config.json --symbols
+uv run python -m etl.run_etl --config etl/config.json --klines
 ```
 `etl/config.json` controls exchange ID, timeframes, batch limits, and seed timestamp; update it per environment.
 
