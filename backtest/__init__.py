@@ -1,7 +1,10 @@
 """Backtest utilities entry point."""
 
+from .data_adapters import FinlabDataAdapter
+from .data_bundle import DataBundle
+from .engine import BacktestEngine, EngineConfig
+from .results import BacktestResult
 from .strategies.momentum import (
-    BacktestResult,
     MomentumConfig,
     MomentumStrategy,
     load_close_prices,
@@ -9,7 +12,11 @@ from .strategies.momentum import (
 )
 
 __all__ = [
+    "BacktestEngine",
     "BacktestResult",
+    "DataBundle",
+    "EngineConfig",
+    "FinlabDataAdapter",
     "MomentumConfig",
     "MomentumStrategy",
     "load_close_prices",

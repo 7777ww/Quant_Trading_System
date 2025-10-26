@@ -14,6 +14,11 @@ import requests
 from pandas.tseries.frequencies import to_offset
 from requests import HTTPError
 
+from ..data_bundle import DataBundle
+from ..engine import BacktestEngine, EngineConfig
+from ..results import BacktestResult
+from .base import BaseStrategy
+
 DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
@@ -40,15 +45,6 @@ class MomentumConfig:
         if self.rebalance_steps is not None and self.rebalance_steps <= 0:
             msg = "rebalance_steps 需為正整數"
             raise ValueError(msg)
-
-
-@dataclass
-class BacktestResult:
-    equity_curve: pd.Series
-    positions: pd.DataFrame
-    weights: pd.DataFrame
-    turnover: pd.Series
-    stats: dict[str, float]
 
 
 def load_close_prices(
@@ -125,7 +121,7 @@ def load_close_prices(
     return frame
 
 
-class MomentumStrategy:
+class MomentumStrategy(BaseStrategy):
     def __init__(self, config: MomentumConfig | None = None) -> None:
         self.config = config or MomentumConfig()
 
@@ -150,7 +146,8 @@ class MomentumStrategy:
             momentum = momentum.shift(self.config.signal_delay)
         return momentum
 
-    def generate_positions(self, prices: pd.DataFrame) -> pd.DataFrame:
+    def generate_positions(self, data: DataBundle | pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
+        prices = data.prices if isinstance(data, DataBundle) else data
         momentum = self.compute_momentum(prices)
         momentum = momentum.dropna(how="all")
         if momentum.empty:
@@ -182,78 +179,29 @@ class MomentumStrategy:
 
         return positions
 
-    @staticmethod
-    def _rebalance_weights(positions: pd.DataFrame) -> pd.DataFrame:
-        if positions.empty:
-            return positions
-        long_counts = (positions > 0).sum(axis=1).replace(0, np.nan)
-        short_counts = (positions < 0).sum(axis=1).replace(0, np.nan)
-
-        long_weights = (positions > 0).astype(float).div(long_counts, axis=0).fillna(0.0)
-        short_weights = (positions < 0).astype(float).div(short_counts, axis=0).fillna(0.0)
-        weights = long_weights - short_weights
-        return weights
-
     def backtest(self, prices: pd.DataFrame, *, initial_capital: float = 1.0) -> BacktestResult:
         prices = prices.sort_index()
-        positions = self.generate_positions(prices)
+        bundle = DataBundle(prices=prices)
+        positions = self.generate_positions(bundle)
         if positions.empty:
-            empty_series = pd.Series(dtype=float)
+            empty_index = prices.index
+            empty_series = pd.Series(dtype=float, index=empty_index)
+            empty_frame = pd.DataFrame(0.0, index=empty_index, columns=prices.columns)
             return BacktestResult(
                 equity_curve=empty_series,
-                positions=positions,
-                weights=positions,
+                positions=empty_frame,
+                weights=empty_frame,
                 turnover=empty_series,
                 stats={},
             )
 
-        weights = self._rebalance_weights(positions)
-        asset_returns = prices.pct_change().reindex(weights.index).fillna(0.0)
-        portfolio_returns = (weights.shift(1).fillna(0.0) * asset_returns).sum(axis=1)
-
-        turnover = weights.diff().abs().sum(axis=1).fillna(0.0)
-        if self.config.transaction_cost > 0:
-            cost = turnover * self.config.transaction_cost
-            portfolio_returns = portfolio_returns - cost
-
-        equity_curve = (1 + portfolio_returns).cumprod() * initial_capital
-
-        stats = self._compute_stats(portfolio_returns)
-        return BacktestResult(
-            equity_curve=equity_curve,
-            positions=positions,
-            weights=weights,
-            turnover=turnover,
-            stats=stats,
+        engine = BacktestEngine(
+            EngineConfig(
+                initial_capital=initial_capital,
+                transaction_cost=self.config.transaction_cost,
+            )
         )
-
-    @staticmethod
-    def _compute_stats(returns: pd.Series) -> dict[str, float]:
-        if returns.empty:
-            return {}
-        ann_factor = 252
-        mean_daily = returns.mean()
-        vol = returns.std(ddof=0)
-        sharpe = mean_daily / vol * np.sqrt(ann_factor) if vol != 0 else np.nan
-        cumulative = (1 + returns).prod() - 1
-        ann_return = (1 + cumulative) ** (ann_factor / len(returns)) - 1
-        max_drawdown = MomentumStrategy._max_drawdown(returns)
-        return {
-            "ann_return": ann_return,
-            "ann_vol": vol * np.sqrt(ann_factor),
-            "sharpe": sharpe,
-            "cumulative_return": cumulative,
-            "max_drawdown": max_drawdown,
-        }
-
-    @staticmethod
-    def _max_drawdown(returns: pd.Series) -> float:
-        if returns.empty:
-            return 0.0
-        equity = (1 + returns).cumprod()
-        rolling_max = equity.cummax()
-        drawdown = (equity / rolling_max) - 1
-        return drawdown.min()
+        return engine.run(prices=prices, positions=positions)
 
     @classmethod
     def from_prices_api(
