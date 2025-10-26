@@ -70,6 +70,7 @@ class FinlabDataFrame(pd.DataFrame):
             msg = "n must be a positive integer"
             raise ValueError(msg)
 
+        # 依照 FinLab 慣例設定最少有效樣本數，避免過度跳動
         min_periods = n // 2 + 1
         averaged = self.rolling(window=n, min_periods=min_periods).mean()
         return FinlabDataFrame(averaged, meta=self.meta)
@@ -94,6 +95,7 @@ class FinlabDataFrame(pd.DataFrame):
         filtered = FinlabDataFrame(frame.copy()) if not isinstance(frame, FinlabDataFrame) else frame.copy()
 
         if self.meta and not filtered.empty:
+            # 當有資料時同步更新中繼資訊的時間區間與標的清單
             start_ts = filtered.index.min().to_pydatetime()
             end_ts = filtered.index.max().to_pydatetime()
             filtered.meta = FinlabFrameMeta(
@@ -154,6 +156,7 @@ def _build_price_stmt(
 ) -> Select[Any]:
     """Build the SQLAlchemy Select for kline values (組出查詢 K 線數值的 Select)。"""
     value_column = _resolve_field(field)
+    # 基礎條件鎖定交易所、時間框與欄位
     stmt = select(
         Kline.symbol.label("symbol"),
         Kline.ts.label("ts"),
@@ -179,6 +182,7 @@ def _rows_to_finlab_frame(
     """Pivot rows into a FinlabDataFrame while keeping metadata (將查詢結果轉成 FinlabDataFrame 並保留 metadata)。"""
     data_frame = pd.DataFrame(rows, columns=["symbol", "ts", "value"])
     if data_frame.empty:
+        # 無資料時回傳結構化的空框，保留原本的 meta 設定
         empty = FinlabDataFrame(pd.DataFrame(), meta=FinlabFrameMeta(
             exchange=meta.exchange,
             timeframe=meta.timeframe,
@@ -208,6 +212,7 @@ def _rows_to_finlab_frame(
         start=start_ts,
         end=end_ts,
     )
+    # 回傳帶著整理後 metadata 的 FinlabDataFrame
     return FinlabDataFrame(pivot, meta=frame_meta)
 
 
@@ -323,3 +328,6 @@ async def get_price_dataframes_async(
             end=end,
         )
     return result
+
+
+

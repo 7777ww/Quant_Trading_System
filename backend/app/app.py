@@ -3,7 +3,7 @@ from __future__ import annotations
 import uvicorn
 from fastapi import FastAPI
 
-from .routers import health, prices
+from .routers import health, prices, screener
 
 
 def create_app() -> FastAPI:
@@ -12,6 +12,7 @@ def create_app() -> FastAPI:
     # 路由註冊
     app.include_router(health.router)
     app.include_router(prices.router)
+    app.include_router(screener.router)
 
     return app
 
