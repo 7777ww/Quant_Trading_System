@@ -85,7 +85,7 @@ uv run python -m etl.run_etl --config etl/config.json --klines
 `etl/config.json` controls exchange ID, timeframes, batch limits, and seed timestamp; update it per environment.
 
 ### Frontend
-`frontend/` currently contains UI placeholders. Add `package.json` / build tooling (Vite or Next.js) before running the client. A future README update should document the chosen stack and commands.
+comming soon ....
 
 ## Development Notes
 - **Database access layer** – `dal/db.py` exposes synchronous and asynchronous session factories. Import `dal.db.db` in API/ETL code to reuse connection pools.
